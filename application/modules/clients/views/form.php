@@ -16,9 +16,17 @@
 
         <?php $this->layout->load_view('layout/alerts'); ?>
 
+        <input class="hidden" name="is_update" type="hidden"
+            <?php if ($this->mdl_clients->form_value('is_update')) {
+                echo 'value="1"';
+            } else {
+                echo 'value="0"';
+            } ?>
+            >
+
         <fieldset>
             <legend><?php echo lang('personal_information'); ?></legend>
-            <div class="input-group">
+            <div class="input-group col-xs-6">
               <span class="input-group-addon">
                 <?php echo lang('active_client'); ?>: 
                 <input id="client_active" name="client_active" type="checkbox" value="1"
@@ -30,7 +38,7 @@
                     >
               </span>
                 <input id="client_name" name="client_name" type="text" class="form-control"
-                       placeholder="<?php echo lang('client_name"'); ?>"
+                       placeholder="<?php echo lang('client_name'); ?>"
                        value="<?php echo $this->mdl_clients->form_value('client_name'); ?>">
             </div>
         </fieldset>

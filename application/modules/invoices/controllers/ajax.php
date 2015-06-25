@@ -34,31 +34,54 @@ class Ajax extends Admin_Controller
             $items = json_decode($this->input->post('items'));
 
             foreach ($items as $item) {
-                if ($item->item_name) {
+                // Check if an item has either a quantity + price or name or description
+                if (!empty($item->item_quantity) && !empty($item->item_price)
+                    || !empty($item->item_name)
+                    || !empty($item->item_description)
+                ) {
                     $item->item_quantity = standardize_amount($item->item_quantity);
                     $item->item_price = standardize_amount($item->item_price);
+                    $item->item_discount_amount = standardize_amount($item->item_discount_amount);
 
                     $item_id = ($item->item_id) ?: NULL;
-
-                    $save_item_as_lookup = (isset($item->save_item_as_lookup)) ? $item->save_item_as_lookup : 0;
-
                     unset($item->item_id, $item->save_item_as_lookup);
-
                     $this->mdl_items->save($invoice_id, $item_id, $item);
+                } else {
+                    // Throw an error message and use the form validation for that
+                    $this->load->library('form_validation');
+                    $this->form_validation->set_rules('item_name', lang('item'), 'required');
+                    $this->form_validation->set_rules('item_description', lang('description'), 'required');
+                    $this->form_validation->set_rules('item_quantity', lang('quantity'), 'required');
+                    $this->form_validation->set_rules('item_price', lang('price'), 'required');
+                    $this->form_validation->run();
 
-                    if ($save_item_as_lookup) {
-                        $db_array = array(
-                            'item_name' => $item->item_name,
-                            'item_description' => $item->item_description,
-                            'item_price' => $item->item_price
-                        );
-
-                        $this->mdl_item_lookups->save(NULL, $db_array);
-                    }
+                    $response = array(
+                        'success' => 0,
+                        'validation_errors' => array(
+                            'item_name' => form_error('item_name', '', ''),
+                            'item_description' => form_error('item_description', '', ''),
+                            'item_quantity' => form_error('item_quantity', '', ''),
+                            'item_price' => form_error('item_price', '', ''),
+                        )
+                    );
+                    echo json_encode($response);
+                    exit;
                 }
             }
 
             $invoice_status = $this->input->post('invoice_status_id');
+
+            if ($this->input->post('invoice_discount_amount') === '') {
+                $invoice_discount_amount = floatval(0);
+            } else {
+                $invoice_discount_amount = $this->input->post('invoice_discount_amount');
+            }
+
+            if ($this->input->post('invoice_discount_percent') === '') {
+                $invoice_discount_percent = floatval(0);
+            } else {
+                $invoice_discount_percent = $this->input->post('invoice_discount_percent');
+            }
 
             $db_array = array(
                 'invoice_number' => $this->input->post('invoice_number'),
@@ -67,7 +90,9 @@ class Ajax extends Admin_Controller
                 'invoice_date_due' => date_to_mysql($this->input->post('invoice_date_due')),
                 'invoice_password' => $this->input->post('invoice_password'),
                 'invoice_status_id' => $invoice_status,
-                'payment_method' => $this->input->post('payment_method')
+                'payment_method' => $this->input->post('payment_method'),
+                'invoice_discount_amount' => $invoice_discount_amount,
+                'invoice_discount_percent' => $invoice_discount_percent,
             );
 
             // check if status changed to sent, the feature is enabled and settings is set to sent
@@ -86,6 +111,10 @@ class Ajax extends Admin_Controller
             }
 
             $this->mdl_invoices->save($invoice_id, $db_array);
+
+            // Recalculate for discounts
+            $this->load->model('invoices/mdl_invoice_amounts');
+            $this->mdl_invoice_amounts->calculate($invoice_id);
 
             $response = array(
                 'success' => 1
@@ -191,11 +220,13 @@ class Ajax extends Admin_Controller
 
         $this->load->model('invoice_groups/mdl_invoice_groups');
         $this->load->model('tax_rates/mdl_tax_rates');
+        $this->load->model('clients/mdl_clients');
 
         $data = array(
             'invoice_groups' => $this->mdl_invoice_groups->get()->result(),
             'tax_rates' => $this->mdl_tax_rates->get()->result(),
-            'client_name' => $this->input->post('client_name')
+            'client_name' => $this->input->post('client_name'),
+            'clients' => $this->mdl_clients->get()->result(),
         );
 
         $this->layout->load_view('invoices/modal_create_invoice', $data);
@@ -221,6 +252,55 @@ class Ajax extends Admin_Controller
         $recur_frequency = $this->input->post('recur_frequency');
 
         echo increment_user_date($invoice_date, $recur_frequency);
+    }
+
+    public function modal_change_client()
+    {
+        $this->load->module('layout');
+        $this->load->model('clients/mdl_clients');
+
+        $data = array(
+            'client_name' => $this->input->post('client_name'),
+            'invoice_id' => $this->input->post('invoice_id'),
+            'clients' => $this->mdl_clients->get()->result(),
+        );
+
+        $this->layout->load_view('invoices/modal_change_client', $data);
+    }
+
+    public function change_client()
+    {
+        $this->load->model('invoices/mdl_invoices');
+        $this->load->model('clients/mdl_clients');
+
+        // Get the client ID
+        $client_name = $this->input->post('client_name');
+        $client = $this->mdl_clients->where('client_name', $this->db->escape_str($client_name))
+            ->get()->row();
+
+        if (!empty($client)) {
+            $client_id = $client->client_id;
+            $invoice_id = $this->input->post('invoice_id');
+
+            $db_array = array(
+                'client_id' => $client_id,
+            );
+            $this->db->where('invoice_id', $invoice_id);
+            $this->db->update('ip_invoices', $db_array);
+
+            $response = array(
+                'success' => 1,
+                'invoice_id' => $invoice_id
+            );
+        } else {
+            $this->load->helper('json_error');
+            $response = array(
+                'success' => 0,
+                'validation_errors' => json_errors()
+            );
+        }
+
+        echo json_encode($response);
     }
 
     public function modal_copy_invoice()
