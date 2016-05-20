@@ -1,7 +1,8 @@
 <?php
 
-if (!defined('BASEPATH'))
+if (!defined('BASEPATH')) {
     exit('No direct script access allowed');
+}
 
 /*
  * InvoicePlane
@@ -34,6 +35,8 @@ class Mdl_Import extends Response_Model
             'client_mobile',
             'client_email',
             'client_web',
+            'client_vat_id',
+            'client_tax_code',
             'client_active'
         ),
         'invoices.csv' => array(
@@ -80,7 +83,8 @@ class Mdl_Import extends Response_Model
             (SELECT COUNT(*) FROM ip_import_details WHERE import_table_name = 'ip_clients' AND ip_import_details.import_id = ip_imports.import_id) AS num_clients,
             (SELECT COUNT(*) FROM ip_import_details WHERE import_table_name = 'ip_invoices' AND ip_import_details.import_id = ip_imports.import_id) AS num_invoices,
             (SELECT COUNT(*) FROM ip_import_details WHERE import_table_name = 'ip_invoice_items' AND ip_import_details.import_id = ip_imports.import_id) AS num_invoice_items,
-            (SELECT COUNT(*) FROM ip_import_details WHERE import_table_name = 'ip_payments' AND ip_import_details.import_id = ip_imports.import_id) AS num_payments", FALSE);
+            (SELECT COUNT(*) FROM ip_import_details WHERE import_table_name = 'ip_payments' AND ip_import_details.import_id = ip_imports.import_id) AS num_payments",
+            false);
     }
 
     public function default_order_by()
@@ -112,12 +116,13 @@ class Mdl_Import extends Response_Model
         // Init an array to store the inserted ids
         $ids = array();
 
-        while (($data = fgetcsv($handle, 1000, ",")) <> FALSE) {
+        while (($data = fgetcsv($handle, 1000, ",")) <> false) {
             // Check to make sure the file headers match the expected headers
             if ($row == 1) {
                 foreach ($headers as $header) {
-                    if (!in_array($header, $data))
-                        return FALSE;
+                    if (!in_array($header, $data)) {
+                        return false;
+                    }
                 }
                 $fileheaders = $data;
             } elseif ($row > 1) {
@@ -125,7 +130,8 @@ class Mdl_Import extends Response_Model
                 $db_array = array();
                 // Loop through each of the values in the row
                 foreach ($headers as $key => $header) {
-                    $db_array[$header] = ($data[array_keys($fileheaders, $header)[0]] <> 'NULL') ? $data[array_keys($fileheaders, $header)[0]] : '';
+                    $db_array[$header] = ($data[array_keys($fileheaders,
+                            $header)[0]] <> 'NULL') ? $data[array_keys($fileheaders, $header)[0]] : '';
                 }
 
                 // Create a couple of default values if file is clients.csv
@@ -161,13 +167,13 @@ class Mdl_Import extends Response_Model
         // Init an array to store the inserted ids
         $ids = array();
 
-        while (($data = fgetcsv($handle, 1000, ",")) <> FALSE) {
+        while (($data = fgetcsv($handle, 1000, ",")) <> false) {
             // Init $record_error as false
-            $record_error = FALSE;
+            $record_error = false;
 
             // Check to make sure the file headers match expected headers
             if ($row == 1 and $data <> $headers) {
-                return FALSE;
+                return false;
             } elseif ($row > 1) {
                 // Init the array
                 $db_array = array();
@@ -183,7 +189,7 @@ class Mdl_Import extends Response_Model
                             $data[$key] = $user->row()->user_id;
                         } else {
                             // Email address not found
-                            $record_error = TRUE;
+                            $record_error = true;
                         }
                     } elseif ($header == 'client_name') {
                         // Replace client name with client id
@@ -240,13 +246,13 @@ class Mdl_Import extends Response_Model
         // Init an array to store the inserted ids
         $ids = array();
 
-        while (($data = fgetcsv($handle, 1000, ",")) <> FALSE) {
+        while (($data = fgetcsv($handle, 1000, ",")) <> false) {
             // Init record_error as false
-            $record_error = FALSE;
+            $record_error = false;
 
             // Check to make sure the file headers match expected headers
             if ($row == 1 and $data <> $headers) {
-                return FALSE;
+                return false;
             } elseif ($row > 1) {
                 // Init the array
                 $db_array = array();
@@ -260,7 +266,7 @@ class Mdl_Import extends Response_Model
                             $header = 'invoice_id';
                             $data[$key] = $user->row()->invoice_id;
                         } else {
-                            $record_error = TRUE;
+                            $record_error = true;
                         }
                     } elseif ($header == 'item_tax_rate') {
                         // Replace item_tax_rate with item_tax_rate_id
@@ -271,7 +277,8 @@ class Mdl_Import extends Response_Model
                             if ($tax_rate->num_rows()) {
                                 $data[$key] = $tax_rate->row()->tax_rate_id;
                             } else {
-                                $this->db->insert('ip_tax_rates', array('tax_rate_name' => $data[$key], 'tax_rate_percent' => $data[$key]));
+                                $this->db->insert('ip_tax_rates',
+                                    array('tax_rate_name' => $data[$key], 'tax_rate_percent' => $data[$key]));
                                 $data[$key] = $this->db->insert_id();
                             }
                         } else {
@@ -285,7 +292,7 @@ class Mdl_Import extends Response_Model
 
                 if (!$record_error) {
                     // No errors, go ahead and create the record
-                    $ids[] = $this->mdl_items->save($db_array['invoice_id'], NULL, $db_array);
+                    $ids[] = $this->mdl_items->save($db_array['invoice_id'], null, $db_array);
                 }
             }
 
@@ -305,11 +312,11 @@ class Mdl_Import extends Response_Model
 
         $ids = array();
 
-        while (($data = fgetcsv($handle, 1000, ",")) <> FALSE) {
-            $record_error = FALSE;
+        while (($data = fgetcsv($handle, 1000, ",")) <> false) {
+            $record_error = false;
 
             if ($row == 1 and $data <> $headers) {
-                return FALSE;
+                return false;
             } elseif ($row > 1) {
                 $db_array = array();
 
@@ -321,7 +328,7 @@ class Mdl_Import extends Response_Model
                             $header = 'invoice_id';
                             $data[$key] = $user->row()->invoice_id;
                         } else {
-                            $record_error = TRUE;
+                            $record_error = true;
                         }
                     } elseif ($header == 'payment_method') {
                         $header = 'payment_method_id';
@@ -345,7 +352,7 @@ class Mdl_Import extends Response_Model
                 }
 
                 if (!$record_error) {
-                    $ids[] = $this->mdl_payments->save(NULL, $db_array);
+                    $ids[] = $this->mdl_payments->save(null, $db_array);
                 }
             }
 

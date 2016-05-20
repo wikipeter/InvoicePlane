@@ -2,8 +2,19 @@
 
     $(function () {
 
+        $('.item-task-id').each(function () {
+            if ($(this).val().length > 0) {
+                $('#invoice_change_client').hide();
+                return false;
+            }
+        });
+
         $('.btn_add_product').click(function () {
             $('#modal-placeholder').load("<?php echo site_url('products/ajax/modal_product_lookups'); ?>/" + Math.floor(Math.random() * 1000));
+        });
+
+        $('.btn_add_task').click(function () {
+            $('#modal-placeholder').load("<?php echo site_url('tasks/ajax/modal_task_lookups/' . $invoice_id); ?>/" + Math.floor(Math.random() * 1000));
         });
 
         $('.btn_add_row').click(function () {
@@ -52,7 +63,7 @@
                     invoice_discount_amount: $('#invoice_discount_amount').val(),
                     invoice_discount_percent: $('#invoice_discount_percent').val(),
                     invoice_terms: $('#invoice_terms').val(),
-                    custom: $('input[name^=custom]').serializeArray(),
+                    custom: $('[name^=custom]').serializeArray(),
                     payment_method: $('#payment_method').val()
                 },
                 function (data) {
@@ -117,6 +128,7 @@
             }
         });
         <?php endif; ?>
+
     });
 
 </script>
@@ -124,7 +136,7 @@
 <?php
 echo $modal_delete_invoice;
 echo $modal_add_invoice_tax;
-if ($this->config->item('disable_read_only') == TRUE) {
+if ($this->config->item('disable_read_only') == true) {
     $invoice->is_read_only = 0;
 }
 ?>
@@ -190,7 +202,7 @@ if ($this->config->item('disable_read_only') == TRUE) {
                         <?php echo lang('copy_invoice'); ?>
                     </a>
                 </li>
-                <?php if ($invoice->invoice_status_id == 1 || ($this->config->item('enable_invoice_deletion') === TRUE && $invoice->is_read_only != 1)) { ?>
+                <?php if ($invoice->invoice_status_id == 1 || ($this->config->item('enable_invoice_deletion') === true && $invoice->is_read_only != 1)) { ?>
                     <li>
                         <a href="#delete-invoice" data-toggle="modal">
                             <i class="fa fa-trash-o fa-margin"></i>
@@ -202,12 +214,15 @@ if ($this->config->item('disable_read_only') == TRUE) {
         </div>
 
         <?php if ($invoice->is_read_only != 1) { ?>
+
             <a href="#" class="btn_add_row btn btn-sm btn-default">
                 <i class="fa fa-plus"></i> <?php echo lang('add_new_row'); ?>
             </a>
             <a href="#" class="btn_add_product btn btn-sm btn-default">
-                <i class="fa fa-database"></i>
-                <?php echo lang('add_product'); ?>
+                <i class="fa fa-database"></i> <?php echo lang('add_product'); ?>
+            </a>
+            <a href="#" class="btn_add_task btn btn-sm btn-default">
+                <i class="fa fa-database"></i> <?php echo lang('add_task'); ?>
             </a>
         <?php }
         if ($invoice->is_read_only != 1 || $invoice->invoice_status_id != 4) { ?>
@@ -452,12 +467,16 @@ if ($this->config->item('disable_read_only') == TRUE) {
                                                  data-dz-uploadprogress></div>
                                         </div>
                                     </div>
-                                    <div>
-                                        <?php if ($invoice->is_read_only != 1) { ?>
-                                        <button data-dz-remove class="btn btn-danger btn-sm delete">
-                                            <i class="fa fa-trash-o"></i>
-                                            <span><?php echo lang('delete'); ?></span>
+                                    <div class="pull-left btn-group">
+                                        <button data-dz-download class="btn btn-sm btn-primary">
+                                             <i class="fa fa-download"></i>
+                                             <span><?php echo lang('download'); ?></span>
                                         </button>
+                                        <?php if ($invoice->is_read_only != 1) { ?>
+                                            <button data-dz-remove class="btn btn-danger btn-sm delete">
+                                                <i class="fa fa-trash-o"></i>
+                                                <span><?php echo lang('delete'); ?></span>
+                                            </button>
                                         <?php } ?>
                                     </div>
                                 </div>
@@ -473,13 +492,32 @@ if ($this->config->item('disable_read_only') == TRUE) {
             <?php endif; ?>
             <?php foreach ($custom_fields as $custom_field) { ?>
                 <label><?php echo $custom_field->custom_field_label; ?></label>
-                <input type="text" class="form-control"
-                       name="custom[<?php echo $custom_field->custom_field_column; ?>]"
-                       id="<?php echo $custom_field->custom_field_column; ?>"
-                       value="<?php echo form_prep($this->mdl_invoices->form_value('custom[' . $custom_field->custom_field_column . ']')); ?>"
-                    <?php if ($invoice->is_read_only == 1) {
-                        echo 'disabled="disabled"';
-                    } ?>>
+                <?php
+                switch ($custom_field->custom_field_type) {
+                    case 'ip_fieldtype_input':
+                        ?>
+                        <input type="text" class="form-control"
+                               name="custom[<?php echo $custom_field->custom_field_column; ?>]"
+                               id="<?php echo $custom_field->custom_field_column; ?>"
+                               value="<?php echo form_prep($this->mdl_invoices->form_value('custom[' . $custom_field->custom_field_column . ']')); ?>"
+                            <?php if ($invoice->is_read_only == 1) {
+                                echo 'disabled="disabled"';
+                            } ?>>
+                        <?php
+                        break;
+
+                    case 'ip_fieldtype_textarea':
+                        ?>
+                        <textarea name="custom[<?php echo $custom_field->custom_field_column; ?>]"
+                                  id="<?php echo $custom_field->custom_field_column; ?>"
+                                  class="form-control"
+                            <?php if ($invoice->is_read_only == 1) {
+                                echo 'disabled="disabled"';
+                            } ?>><?php echo form_prep($this->mdl_invoices->form_value('custom[' . $custom_field->custom_field_column . ']')); ?></textarea>
+                        <?php
+                        break;
+                }
+                ?>
             <?php } ?>
 
 
@@ -507,6 +545,7 @@ if ($this->config->item('disable_read_only') == TRUE) {
         thumbnailHeight: 80,
         parallelUploads: 20,
         uploadMultiple: false,
+        dictRemoveFileConfirmation: '<?php echo lang('delete_attachment_warning'); ?>' ,
         previewTemplate: previewTemplate,
         autoQueue: true, // Make sure the files aren't queued until manually added
         previewsContainer: "#previews", // Define the container to display the previews
@@ -517,6 +556,7 @@ if ($this->config->item('disable_read_only') == TRUE) {
                 $.each(data, function (index, val) {
                     var mockFile = {fullname: val.fullname, size: val.size, name: val.name};
                     thisDropzone.options.addedfile.call(thisDropzone, mockFile);
+                    createDownloadButton(mockFile, '<?php echo base_url(); ?>uploads/customer_files/' + val.fullname);
                     if (val.fullname.match(/\.(jpg|jpeg|png|gif)$/)) {
                         thisDropzone.options.thumbnail.call(thisDropzone, mockFile,
                             '<?php echo base_url(); ?>uploads/customer_files/' + val.fullname);
@@ -533,6 +573,7 @@ if ($this->config->item('disable_read_only') == TRUE) {
 
     myDropzone.on("addedfile", function (file) {
         myDropzone.emit("thumbnail", file, '<?php echo base_url(); ?>assets/default/img/favicon.png');
+        createDownloadButton(file, '<?php echo base_url() . 'uploads/customer_files/' .$invoice->invoice_url_key . '_' ?>' + file.name.replace( /\s+/g ,'_'));
     });
 
     // Update the total progress bar
@@ -554,7 +595,19 @@ if ($this->config->item('disable_read_only') == TRUE) {
         $.ajax({
             url: "<?php echo site_url('upload/delete_file/'.$invoice->invoice_url_key) ?>",
             type: "POST",
-            data: {'name': file.name}
+            data: {'name': file.name.replace( /\s+/g ,'_')}
         });
     });
+
+    function createDownloadButton (file, fileUrl) {
+        var downloadButtonList = file.previewElement.querySelectorAll("[data-dz-download]");
+        for (_i = 0; _i < downloadButtonList.length; _i++) {
+            downloadButtonList[_i].addEventListener("click", function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                window.open(fileUrl);
+                return false;
+            });
+        }
+    }
 </script>

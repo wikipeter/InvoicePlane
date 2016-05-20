@@ -6,13 +6,16 @@
         invoice_payment_methods = JSON.parse('<?php echo $invoice_payment_methods; ?>');
         $('#invoice_id').change(function () {
             var invoice_identifier = "invoice" + $('#invoice_id').val();
-            $('#payment_amount').val(amounts[invoice_identifier]);
+            $('#payment_amount').val(amounts[invoice_identifier].replace("&nbsp;", " "));
             $('#payment_method_id option[value="' + invoice_payment_methods[invoice_identifier] + '"]').prop('selected', true);
+
             if (invoice_payment_methods[invoice_identifier] != 0) {
+                $('.payment-method-wrapper').append("<input type='hidden' name='payment_method_id' id='payment-method-id-hidden' class='hidden' value='" + invoice_payment_methods[invoice_identifier] + "'>");
                 $('#payment_method_id').prop('disabled', true);
             } else {
+                $('#payment-method-id-hidden').remove();
                 $('#payment_method_id').prop('disabled', false);
-            };
+            }
         });
 
     });
@@ -85,7 +88,15 @@
                     <?php echo lang('payment_method'); ?>
                 </label>
             </div>
-            <div class="col-xs-12 col-sm-6">
+            <div class="col-xs-12 col-sm-6 payment-method-wrapper">
+
+                <?php
+                // Add a hidden input field if a payment method was set to pass the disabled attribute
+                if ($this->mdl_payments->form_value('payment_method_id')) { ?>
+                    <input type="hidden" name="payment_method_id" class="hidden"
+                           value="<?php echo $this->mdl_payments->form_value('payment_method_id'); ?>">
+                <?php } ?>
+
                 <select id="payment_method_id" name="payment_method_id" class="form-control"
                     <?php echo($this->mdl_payments->form_value('payment_method_id') ? 'disabled="disabled"' : ''); ?>>
 
@@ -116,10 +127,26 @@
                     <label><?php echo $custom_field->custom_field_label; ?>: </label>
                 </div>
                 <div class="col-xs-12 col-sm-6">
-                    <input type="text" name="custom[<?php echo $custom_field->custom_field_column; ?>]"
-                           id="<?php echo $custom_field->custom_field_column; ?>"
-                           class="form-control"
-                           value="<?php echo form_prep($this->mdl_payments->form_value('custom[' . $custom_field->custom_field_column . ']')); ?>">
+                    <?php
+                    switch ($custom_field->custom_field_type) {
+                        case 'ip_fieldtype_input':
+                            ?>
+                            <input type="text" name="custom[<?php echo $custom_field->custom_field_column; ?>]"
+                                   id="<?php echo $custom_field->custom_field_column; ?>"
+                                   class="form-control"
+                                   value="<?php echo form_prep($this->mdl_payments->form_value('custom[' . $custom_field->custom_field_column . ']')); ?>">
+                            <?php
+                            break;
+
+                        case 'ip_fieldtype_textarea':
+                            ?>
+                            <textarea name="custom[<?php echo $custom_field->custom_field_column; ?>]"
+                                      id="<?php echo $custom_field->custom_field_column; ?>"
+                                      class="form-control"><?php echo form_prep($this->mdl_payments->form_value('custom[' . $custom_field->custom_field_column . ']')); ?></textarea>
+                            <?php
+                            break;
+                    }
+                    ?>
                 </div>
             </div>
         <?php } ?>
